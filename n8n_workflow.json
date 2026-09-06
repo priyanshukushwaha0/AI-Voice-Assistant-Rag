@@ -1,0 +1,41 @@
+{
+  "name": "Voice Assistant Orchestration Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-input",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 200]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8000/api/voice-process",
+        "method": "POST",
+        "sendBinaryData": true,
+        "binaryPropertyName": "data"
+      },
+      "name": "Voice Pipeline Execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [320, 200]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Voice Pipeline Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

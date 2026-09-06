@@ -28,7 +28,13 @@ A real-time, speech-to-speech AI voice assistant built to achieve sub-1.5 second
 
 ---
 
-## How to Run the Project
+## Run the Deployed Application
+
+Live Application: https://ai-voice-assistant-rag.streamlit.app/
+
+---
+
+## How to Run the Project Second Option
 
 1. **Clone the repository**
    ```bash

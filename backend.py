@@ -1,24 +1,39 @@
 import os, time, base64, httpx
 from collections import deque
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from huggingface_hub import AsyncInferenceClient
 from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI()
+app = FastAPI(title="AI Voice Assistant RAG")
+
+# Enable CORS for requests coming from Streamlit Cloud
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 history = deque(maxlen=6)
 
-# Global async client for sub-2000ms network reuse
-http_client = httpx.AsyncClient(timeout=8.0)
+# Global async client for network connection reuse
+http_client = httpx.AsyncClient(timeout=15.0)
 
 SARVAM_KEY = os.getenv("SARVAM_API_KEY", "").strip()
 HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
 
 # Hugging Face Async Inference Client
 hf_client = AsyncInferenceClient(token=HF_TOKEN if HF_TOKEN else None)
-HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct"  # Ultra-fast serverless LLM on HF
+HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
+
+@app.get("/")
+async def root():
+    return {"status": "backend operational", "endpoint": "/api/voice-process"}
 
 async def transcribe(audio_bytes: bytes) -> str:
     res = await http_client.post(

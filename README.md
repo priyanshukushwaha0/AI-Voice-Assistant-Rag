@@ -45,7 +45,10 @@ A real-time, speech-to-speech AI voice assistant built to achieve sub-1.5 second
 
 5. Install dependencies --> pip install -r requirements.txt
 
-   Run Code in a New Terminal  --> streamlit run frontend.py
+6. Launch the Application -->
+
+- Start the FastAPI Backend Server (Terminal 1) : python backend.py
+- Start the Streamlit Frontend     (Terminal 2) : streamlit run frontend.py
 
 ---
 

@@ -6,8 +6,15 @@ import os
 
 st.set_page_config(page_title="Low-Latency AI Voice Assistant-RAG", layout="centered")
 
-# Backend URL: Uses environment variable BACKEND_URL if deployed, falls back to localhost for local testing
-BACKEND_URL = os.getenv("BACKEND_URL", "https://ai-voice-assistant-rag.onrender.com/")
+# Production Backend Endpoint on Render
+DEFAULT_BACKEND = "https://ai-voice-assistant-rag.onrender.com/api/voice-process"
+RAW_URL = st.secrets.get("BACKEND_URL", os.getenv("BACKEND_URL", DEFAULT_BACKEND))
+
+# Ensure correct URL endpoint path
+if not RAW_URL.endswith("/api/voice-process"):
+    BACKEND_URL = RAW_URL.rstrip("/") + "/api/voice-process"
+else:
+    BACKEND_URL = RAW_URL
 
 # Clean Dark Theme CSS
 st.markdown("""
@@ -22,67 +29,57 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Session State Initialization
-if "chat" not in st.session_state: 
-    st.session_state.chat = []
-if "latency" not in st.session_state: 
-    st.session_state.latency = None
-if "last_audio" not in st.session_state: 
-    st.session_state.last_audio = None
+if "chat" not in st.session_state: st.session_state.chat = []
+if "latency" not in st.session_state: st.session_state.latency = None
+if "last_audio" not in st.session_state: st.session_state.last_audio = None
 
 st.markdown('<div class="header">Low-Latency AI Voice Assistant-RAG</div>', unsafe_allow_html=True)
 
 # Header Status Row
 c1, c2 = st.columns([1, 1])
-with c1: 
+with c1:
     st.markdown("<span style='color:#8b949e; font-size: 14px;'>● Idle</span>", unsafe_allow_html=True)
-with c2: 
+with c2:
     lat_str = f"first audio: {st.session_state.latency} ms" if st.session_state.latency is not None else "first audio: -- ms"
     st.markdown(f"<div style='text-align:right;'><span class='badge'>{lat_str}</span></div>", unsafe_allow_html=True)
 
 st.write("")
 
-# Button Controls
+# Controls
 b1, b2 = st.columns([3, 1])
 with b1:
     audio = mic_recorder(start_prompt="🔴 Start Recording", stop_prompt="⏹️ Stop Recording", key="recorder", use_container_width=True)
 with b2:
     repeat_clicked = st.button("Repeat", use_container_width=True)
 
-# Handle Repeat Audio Trigger
 if repeat_clicked:
     if st.session_state.last_audio:
         st.audio(st.session_state.last_audio, format="audio/wav", autoplay=True)
     else:
         st.toast("No previous response audio to play.")
 
-# Process Recorded Audio Input
+# Process Recorded Audio
 if audio and "bytes" in audio and len(audio["bytes"]) > 0:
     with st.spinner("Processing..."):
         try:
-            res = requests.post(BACKEND_URL, files={"file": ("audio.wav", audio["bytes"], "audio/wav")})
-            
+            res = requests.post(BACKEND_URL, files={"file": ("audio.wav", audio["bytes"], "audio/wav")}, timeout=30)
             if res.status_code == 200:
                 data = res.json()
                 st.session_state.latency = data.get("latency_ms", "N/A")
-                
-                # Append user transcript & AI response to chat memory
                 st.session_state.chat.extend([
                     {"role": "You", "text": data.get("transcript", "")},
                     {"role": "Assistant", "text": data.get("ai_response", "")}
                 ])
-                
-                # Store and auto-play returned audio response
                 if data.get("audio_b64"):
                     audio_bytes = base64.b64decode(data["audio_b64"])
                     st.session_state.last_audio = audio_bytes
                     st.audio(audio_bytes, format="audio/wav", autoplay=True)
             else:
-                st.error(res.json().get("detail", f"Backend error ({res.status_code})"))
+                st.error(res.json().get("detail", f"Error {res.status_code} from backend."))
         except Exception as e:
-            st.error(f"Failed to connect to backend service: {e}")
+            st.error(f"Backend connection failed: {e}")
 
-# Render Transcript History Box (Unified HTML block to prevent blank container bug)
+# Render Transcript
 chat_html = '<div class="chat-box">'
 if not st.session_state.chat:
     chat_html += "<span style='color:#484f58; font-style: italic;'>No conversation yet. Click 'Start Recording' to begin.</span>"

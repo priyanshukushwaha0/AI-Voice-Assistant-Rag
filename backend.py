@@ -1,4 +1,4 @@
-import os, time, base64, httpx, asyncio
+import os, time, base64, httpx
 from collections import deque
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,7 +20,7 @@ app.add_middleware(
 
 history = deque(maxlen=2)
 
-# Connection pool setup to keep TCP/TLS connections warm
+# Global HTTP client connection pool to maximize speed
 http_client = httpx.AsyncClient(
     timeout=httpx.Timeout(10.0, connect=3.0),
     limits=httpx.Limits(max_keepalive_connections=50, max_connections=100)
@@ -55,7 +55,7 @@ async def text_to_speech(text: str) -> bytes:
         "target_language_code": "en-IN", 
         "speaker": "shubh", 
         "model": "bulbul:v3", 
-        "pace": 1.3
+        "pace": 1.35
     }
     res = await http_client.post(
         "https://api.sarvam.ai/text-to-speech",
@@ -73,14 +73,14 @@ async def voice_process(file: UploadFile = File(...)):
     if not audio_bytes:
         raise HTTPException(400, "Invalid audio input")
 
-    # Step 1: Speech-To-Text
+    # 1. Speech to Text
     transcript = await transcribe(audio_bytes)
     if not transcript:
         raise HTTPException(400, "Could not transcribe audio")
 
-    # Step 2: Ultra-Fast LLM Generation (Strict 12 token cap for speed)
+    # 2. Optimized LLM Generation (Strict max token limit for fast reply under 1.5s-2s)
     messages = [
-        {"role": "system", "content": "You are a ultra-fast voice assistant. Answer directly in 1 short sentence, maximum 6 words."}
+        {"role": "system", "content": "You are a ultra-fast voice assistant. Answer directly in 1 short sentence under 6 words."}
     ] + list(history) + [{"role": "user", "content": transcript}]
 
     try:
@@ -88,7 +88,7 @@ async def voice_process(file: UploadFile = File(...)):
             model=HF_MODEL,
             messages=messages,
             max_tokens=12,
-            temperature=0.1
+            temperature=0.0
         )
         ai_response = completion.choices[0].message.content.strip()
     except Exception as e:
@@ -97,7 +97,7 @@ async def voice_process(file: UploadFile = File(...)):
     history.append({"role": "user", "content": transcript})
     history.append({"role": "assistant", "content": ai_response})
 
-    # Step 3: Text-To-Speech Synthesis
+    # 3. Text to Speech
     audio_out = await text_to_speech(ai_response)
     if not audio_out:
         raise HTTPException(500, "TTS generation failed")

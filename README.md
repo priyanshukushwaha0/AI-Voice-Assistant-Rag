@@ -1,17 +1,16 @@
 # Low-Latency AI Voice Assistant-RAG
 
-A real-time, speech-to-speech AI voice assistant built to achieve sub-1.5 second end-to-end response latency. The system features a Streamlit frontend for microphone audio capture, a high-performance FastAPI backend, Sarvam AI for state-of-the-art Indian language STT/TTS, an embedded in-memory Qdrant instance for lightning-fast RAG context retrieval, and Groq LLM acceleration.
+Low-Latency AI Voice Assistant is a real-time, low-latency conversational AI application built to deliver continuous, hands-free voice interactions. Powered by a high-performance **FastAPI** backend and an interactive **Streamlit** frontend, this system integrates Speech-to-Text (STT), Large Language Model (LLM) inference, and Text-to-Speech (TTS) pipelines to achieve sub-second voice response speeds.
 
 ---
 
 ## Key Features
 
-* **Sub-1.5s Response Time**: Optimized pipeline architecture delivering voice responses in real time.
-* **Embedded In-Memory Qdrant RAG**: Runs vector search locally inside the Python runtime (`:memory:`), providing sub-150ms context retrieval without requiring Docker containers.
-* **Sarvam AI Audio Stack**: High-accuracy Speech-to-Text (`saaras:v4`) and natural-sounding Text-to-Speech synthesis (`bulbul:v3`).
-* **Groq Acceleration**: Ultra-fast token generation using high-throughput LLM models.
-* **Zero External Container Overhead**: Uses a custom Python in-memory TTL cache to eliminate external Redis setup while retaining sub-10ms cache lookups.
-* **Short-Term Context Memory**: Maintains full conversation history for the last 3 turns while keeping total prompt size under 1,000 tokens.
+* **Continuous Conversation Loop:** Automatically switches between listening, processing, and speaking without requiring manual clicks after each interaction.
+* **Low-Latency Architecture:** Optimized connection pooling and strict response budgeting ensure ultra-fast end-to-end processing.
+* **Real-Time Latency Tracking:** Displays live performance metrics (`Latency Check: XX ms`) for every conversational turn.
+* **Minimalist UI:** Clean, distraction-free dark interface focused entirely on voice input and audio response.
+* **Silence Detection:** Client-side Voice Activity Detection (VAD) automatically triggers speech processing upon user silence.
 
 ---
 

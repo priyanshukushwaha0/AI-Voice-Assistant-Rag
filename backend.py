@@ -1,4 +1,4 @@
-import os, time, base64, httpx
+import os, time, base64, httpx, asyncio
 from collections import deque
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +10,6 @@ load_dotenv()
 
 app = FastAPI(title="AI Voice Assistant RAG")
 
-# Enable CORS for requests coming from Streamlit Cloud
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,21 +18,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-history = deque(maxlen=6)
+history = deque(maxlen=2)
 
-# Global async client for network connection reuse
-http_client = httpx.AsyncClient(timeout=15.0)
+# Connection pool setup to keep TCP/TLS connections warm
+http_client = httpx.AsyncClient(
+    timeout=httpx.Timeout(10.0, connect=3.0),
+    limits=httpx.Limits(max_keepalive_connections=50, max_connections=100)
+)
 
 SARVAM_KEY = os.getenv("SARVAM_API_KEY", "").strip()
 HF_TOKEN = os.getenv("HF_TOKEN", "").strip()
 
-# Hugging Face Async Inference Client
 hf_client = AsyncInferenceClient(token=HF_TOKEN if HF_TOKEN else None)
 HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    await http_client.aclose()
+
 @app.get("/")
 async def root():
-    return {"status": "backend operational", "endpoint": "/api/voice-process"}
+    return {"status": "backend operational"}
 
 async def transcribe(audio_bytes: bytes) -> str:
     res = await http_client.post(
@@ -45,7 +50,13 @@ async def transcribe(audio_bytes: bytes) -> str:
     return res.json().get("transcript", "").strip() if res.status_code == 200 else ""
 
 async def text_to_speech(text: str) -> bytes:
-    payload = {"inputs": [text], "target_language_code": "en-IN", "speaker": "shubh", "model": "bulbul:v3", "pace": 1.15}
+    payload = {
+        "inputs": [text], 
+        "target_language_code": "en-IN", 
+        "speaker": "shubh", 
+        "model": "bulbul:v3", 
+        "pace": 1.3
+    }
     res = await http_client.post(
         "https://api.sarvam.ai/text-to-speech",
         json=payload,
@@ -57,42 +68,41 @@ async def text_to_speech(text: str) -> bytes:
 
 @app.post("/api/voice-process")
 async def voice_process(file: UploadFile = File(...)):
-    start_time = time.time()
+    start_time = time.perf_counter()
     audio_bytes = await file.read()
     if not audio_bytes:
         raise HTTPException(400, "Invalid audio input")
 
-    # 1. Speech to Text
+    # Step 1: Speech-To-Text
     transcript = await transcribe(audio_bytes)
     if not transcript:
         raise HTTPException(400, "Could not transcribe audio")
 
-    # 2. Hugging Face LLM Generation
+    # Step 2: Ultra-Fast LLM Generation (Strict 12 token cap for speed)
     messages = [
-        {"role": "system", "content": "You are a fast voice assistant. Answer in 1 direct short sentence max."}
+        {"role": "system", "content": "You are a ultra-fast voice assistant. Answer directly in 1 short sentence, maximum 6 words."}
     ] + list(history) + [{"role": "user", "content": transcript}]
 
     try:
         completion = await hf_client.chat_completion(
             model=HF_MODEL,
             messages=messages,
-            max_tokens=40,
-            temperature=0.2
+            max_tokens=12,
+            temperature=0.1
         )
         ai_response = completion.choices[0].message.content.strip()
     except Exception as e:
-        raise HTTPException(500, f"Hugging Face API Error: {e}")
+        raise HTTPException(500, f"LLM Error: {e}")
 
-    # History update
     history.append({"role": "user", "content": transcript})
     history.append({"role": "assistant", "content": ai_response})
 
-    # 3. Text to Speech
+    # Step 3: Text-To-Speech Synthesis
     audio_out = await text_to_speech(ai_response)
     if not audio_out:
         raise HTTPException(500, "TTS generation failed")
 
-    latency_ms = int((time.time() - start_time) * 1000)
+    latency_ms = int((time.perf_counter() - start_time) * 1000)
 
     return JSONResponse({
         "transcript": transcript,

@@ -4,7 +4,7 @@ import requests
 import base64
 import os
 
-st.set_page_config(page_title="Low-Latency AI Voice Assistant", layout="centered")
+st.set_page_config(page_title="Low-Latency AI Voice Assistant-RAG", layout="centered")
 
 DEFAULT_BACKEND = "https://ai-voice-assistant-rag.onrender.com/api/voice-process"
 
@@ -29,7 +29,7 @@ st.markdown("""
 if "latency" not in st.session_state:
     st.session_state.latency = None
 
-st.markdown('<div class="header">Low-Latency AI Voice Assistant</div>', unsafe_allow_html=True)
+st.markdown('<div class="header">Low-Latency AI Voice Assistant-RAG</div>', unsafe_allow_html=True)
 
 lat_str = f"Latency: {st.session_state.latency} ms" if st.session_state.latency is not None else "Latency: -- ms"
 st.markdown(f"<div style='text-align:center; margin-bottom: 25px;'><span class='badge'>{lat_str}</span></div>", unsafe_allow_html=True)
